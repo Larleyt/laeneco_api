@@ -1,6 +1,8 @@
 import os
+import json
 import uuid
 
+from bson import ObjectId
 from flask import Flask, request, jsonify, abort
 from flask_pymongo import PyMongo
 from werkzeug.utils import secure_filename
@@ -17,6 +19,13 @@ mongo = PyMongo(app)
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
 
 
 @app.route('/api/cases', methods=['POST'])
@@ -53,13 +62,13 @@ def create_case():
         ).read()
 
         case = {
-            'id': case_id,
+            'case_id': str(case_id),
             'filename': unique_filename,
             'result': cnn_result
         }
 
         insert_result = mongo.db.cases.insert_one(case)
-        return jsonify({'case': case}), 201
+        return JSONEncoder().encode(case), 201
 
 
 # @app.route('/api/cases/<int:case_id>', methods=['GET'])
