@@ -57,7 +57,8 @@ def create_case():
         filepath = os.path.join(
             PROJECT_PATH, app.config['UPLOAD_FOLDER'], unique_filename)
         cnn_result = os.popen(
-            "python cnn_lung/example.py -audio_path {}".format(
+            "{} cnn_lung/example.py -audio_path {}".format(
+                os.path.join(os.environ["VIRTUAL_ENV"], "bin/python"),
                 filepath)
         ).read()
 

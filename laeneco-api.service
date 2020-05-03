@@ -1,0 +1,15 @@
+[Unit]
+Description=UWSGI instance(s) to serve Laeneco API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+PIDFile=/tmp/pid-uwsgi
+EnvironmentFile=/root/laeneco_api/api.env
+ExecStart=/bin/bash -c '${VIRTUAL_ENV}/bin/uwsgi --socket ${LAENECO_API_HOST}:${LAENECO_API_PORT} --protocol=http --chdir ${PROJECT_ROOT} -w wsgi'
+
+[Install]
+WantedBy=multi-user.target
