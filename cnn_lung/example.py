@@ -3,89 +3,58 @@ import numpy as np
 import scipy.io.wavfile as wav
 from numpy.lib import stride_tricks
 import pickle
-from keras.models import model_from_json
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-audio_path")
 args = parser.parse_args()
 audio_path = args.audio_path
-from PIL import Image
 import warnings
-import soundfile as sf
 warnings.filterwarnings('ignore')
+import soundfile as sf
+from python_speech_features import mfcc
 
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))
 
+def get_feat(sig, rate):
+    mfcc_feat = mfcc(sig,rate,nfft=2048, lowfreq=50, highfreq=2000)
+    # print(100*len(sig)/rate)
+    # print(len(mfcc_feat))
+    if (abs((100*len(sig)/rate) / len(mfcc_feat) - 1) > 0.2):
+        winstep = np.round(0.01*(len(mfcc_feat)/(100*len(sig)/rate)), 2)
+        mfcc_feat = mfcc(sig,rate,nfft=2048, lowfreq=50, highfreq=2000, winstep=winstep)
+    # print(len(mfcc_feat))
+    return mfcc_feat
 
-def logscale_spec(spec, sr=44100, factor=20.):
-    timebins, freqbins = np.shape(spec)
-    scale = np.linspace(0, 1, freqbins) ** factor
-    scale *= (freqbins-1)/max(scale)
-    scale = np.unique(np.round(scale))
-    # create spectrogram with new freq bins
-    newspec = np.complex128(np.zeros([timebins, len(scale)]))
-    for i in range(0, len(scale)):
-        if i == len(scale)-1:
-            newspec[:,i] = np.sum(spec[:,scale[i]:], axis=1)
+def pad(x, l = 250):
+    if (x.shape[0] == l):
+        return x
+    if (x.shape[0] < l):
+        pad = (l - len(x)) // 2
+        x = np.concatenate((np.zeros([pad,x.shape[1]]),x,np.zeros([pad,x.shape[1]])))
+    else:
+        pad = (len(x) - l) // 2
+        if (pad == 0):
+            x = x[1:, :]
         else:
-            newspec[:,i] = np.sum(spec[:,scale[i]:scale[i+1]], axis=1)
-    # list center freq of bins
-    allfreqs = np.abs(np.fft.fftfreq(freqbins*2, 1./sr)[:freqbins+1])
-    freqs = []
-    for i in range(0, len(scale)):
-        if i == len(scale)-1:
-            freqs += [np.mean(allfreqs[scale[i]:])]
-        else:
-            freqs += [np.mean(allfreqs[scale[i]:scale[i+1]])]
-    return newspec, freqs
+            x = x[pad:-pad,:]
+    if (x.shape[0] == l-1):
+        x = np.concatenate((x, np.zeros([1,x.shape[1]])))
+    return x[:l]
 
-def stft(sig, frameSize, overlapFac=0.5, window=np.hanning):
-    win = window(frameSize)
-    hopSize = int(frameSize - np.floor(overlapFac * frameSize))
-    # zeros at beginning (thus center of 1st window should be for sample nr. 0)
-    samples = np.append(np.zeros(np.floor(frameSize/2.0)), sig)
-    # cols for windowing
-    cols = np.ceil( (len(samples) - frameSize) / float(hopSize)) + 1
-    # zeros at end (thus samples can be fully covered by frames)
-    samples = np.append(samples, np.zeros(frameSize))
-    frames = stride_tricks.as_strided(samples, shape=(cols, frameSize), strides=(samples.strides[0]*hopSize, samples.strides[0])).copy()
-    frames *= win
-    return np.fft.rfft(frames)
-
-def stft_eval(samplerate, samples, binsize=2048, plotpath=None, colormap="jet"):
-    s = stft(samples, binsize)
-    sshow, freq = logscale_spec(s, factor=1.0, sr=samplerate)
-    ims = 20.*np.log10(np.abs(sshow)/10e-6) # amplitude to decibel
-    timebins, freqbins = np.shape(ims)
-    return np.transpose(ims[:, :80])
-
-def extract_zip_spec(path):
-    rate, sample = wav.read(path)
-    spec = stft_eval(rate, sample)
-    if (spec.shape[1] > 500):
-        spec = spec[:, spec.shape[1]-500:]
-    result = np.array(Image.fromarray(spec).resize((150, int(spec.shape[0])), Image.NEAREST))
-    result[np.isnan(result)] = 0
-    result[np.isinf(result)] = 0
-    return result
-
-def load_nn(path):
-    arch, w = pickle.load(open(path, 'rb'))
-    model = model_from_json(arch)
-    model.set_weights(w)
+def load_model(path):
+    model = pickle.load(open(path, 'rb'))
     return model
 
 def predict(wav_path, model_path):
-    data = extract_zip_spec(wav_path)
-    mean, std = pickle.load(open(
-        os.path.join(CUR_PATH, "mean_and_std.pkl"), 'rb'))
-    data = (data - mean) / std
-    data = data.reshape((1,1,data.shape[0], data.shape[1]))
-    nn = load_nn(model_path)
-    pred = nn.predict(data)
-    return pred[0][0]
+    (rate, sig) = wav.read(wav_path)
+    data = pad(get_feat(sig, rate)).flatten()
+    if (len(data) == 0):
+        return 0
+    nn = load_model(model_path)
+    pred = nn.predict([data])
+    return pred[0]
 
-model_path = os.path.join(CUR_PATH, "cnn_1.model")
+model_path = os.path.join(CUR_PATH, "vclf.pkl")
 if ('.ogg' in audio_path):
     data, samplerate = sf.read(audio_path)
     audio_path = ".".join(audio_path.split('.')[:-1]) + "_converted.wav"
