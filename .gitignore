@@ -1,7 +1,7 @@
-.DS_Store
-data/.DS_Store
-data/db/*
-data/uploads/*
+**/.DS_Store
+**/.idea
+
+data/*
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/

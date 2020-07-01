@@ -1,3 +1,0 @@
-Flask==0.12.2
-Flask-PyMongo==0.5.1
-uwsgi=2.0.15

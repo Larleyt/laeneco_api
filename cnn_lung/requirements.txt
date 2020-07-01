@@ -1,5 +1,0 @@
-theano == 0.9.0
-keras == 1.1.2
-numpy == 1.11.0
-scipy == 0.19.1
-pysoundfile == 0.9.0
