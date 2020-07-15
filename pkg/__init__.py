@@ -19,6 +19,12 @@ def create_app():
     app.config["db"] = mongo.db
     app.config["fs"] = fs
 
+    os.makedirs(
+        os.path.join(
+            app.config["PROJECT_ROOT"],
+            app.config["DIR_UPLOAD_FAILED"]),
+        exist_ok=True)
+
     # # Init model
     # model_path = os.path.join(app.config["PROJECT_ROOT"], "pkg/cnn_lung/vclf.pkl")
     # app.config["model"] = load_model(model_path)

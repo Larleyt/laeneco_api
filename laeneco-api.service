@@ -11,6 +11,9 @@ PIDFile=/tmp/pid-uwsgi
 EnvironmentFile=/root/laeneco_api/api.env
 Environment=LAENECO_SETTINGS=/root/laeneco_api/api.env
 ExecStart=/bin/bash -c '${VIRTUAL_ENV}/bin/uwsgi --socket ${LAENECO_API_HOST}:${LAENECO_API_PORT} --protocol=http --chdir ${PROJECT_ROOT} --wsgi-file wsgi.py --callable app'
+RemainAfterExit=no
+Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target

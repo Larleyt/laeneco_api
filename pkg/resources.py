@@ -4,6 +4,8 @@ from flask import Blueprint
 from flask import request, jsonify, abort, send_file, make_response
 from werkzeug.utils import secure_filename
 from gridfs.errors import NoFile
+from bson import ObjectId
+import uuid
 
 from pkg.cnn_lung.model import load_and_predict
 from pkg import utils
@@ -27,11 +29,16 @@ def create_case():
 
         filename = secure_filename(file.filename)
         try:
-            incoming_file_id, user_id, side = os.path.splitext(filename)[0].split("_", 2)
+            # incoming_file_id, user_id, side = os.path.splitext(filename)[0].split("_", 2)
+            user_id, side = os.path.splitext(filename)[0].split("_", 1)
         except ValueError:
-            abort(400, "Unable to parse file_id, user_id and side from the file name. Check the filename.")
-        # case_id = uuid.uuid1()
-        # unique_filename = "_".join([str(case_id), filename])
+            unique_filename = "_".join([filename, str(uuid.uuid1())])
+            file.save(os.path.join(
+                app.config["PROJECT_ROOT"],
+                app.config["DIR_UPLOAD_FAILED"],
+                unique_filename
+            ))
+            abort(400, "Unable to parse user_id and side from the file name. Check the filename.")
 
         predict_result = load_and_predict(file)
 
@@ -68,10 +75,10 @@ def get_measures_list_by_user(user_id):
     return utils.JSONEncoder().encode(cases), 200
 
 
-@bp.route("/api/files/<filename>", methods=["GET"])
-def get_file_by_filename(filename):
+@bp.route("/api/files/<file_id>", methods=["GET"])
+def get_file_by_filename(file_id):
     try:
-        grid_out = app.config["fs"].get_last_version(filename)
+        grid_out = app.config["fs"].get(ObjectId(file_id))
     except NoFile:
         abort(make_response(jsonify(error="No such file."), 404))
 
@@ -79,5 +86,5 @@ def get_file_by_filename(filename):
         grid_out,
         mimetype=grid_out.content_type,
         as_attachment=True,
-        attachment_filename=filename
+        attachment_filename=grid_out.name
     )
