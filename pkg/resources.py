@@ -41,6 +41,9 @@ def create_case():
             abort(400, "Unable to parse user_id and side from the file name. Check the filename.")
 
         predict_result = load_and_predict(file)
+        if predict_result is None:
+            abort(400, "Unable to parse audio data. Check the file you're sending.")
+
 
         # Delete if exists
         # if app.config["fs"].exists(filename=filename):

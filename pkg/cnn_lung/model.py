@@ -45,9 +45,15 @@ def load_model(path):
 
 def predict(wav_path, model):
     rate, sig = wav.read(wav_path)
+
+    # Empty file
+    if len(sig) == 0:
+        return None
+
     data = pad(get_feat(sig, rate)).flatten()
+    # Empty features
     if len(data) == 0:
-        return 0
+        return None
 
     pred = model.predict([data])
     return int(pred[0])
